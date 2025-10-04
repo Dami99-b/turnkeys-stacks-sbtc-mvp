@@ -1,95 +1,96 @@
-import { useState } from "react";
-import Navbar from "../components/Navbar";
-import WalletEmbed from "../components/WalletEmbed";
-import TxModal from "../components/TxModal";
-import { showToast } from "../components/ToastRoot";
-import { txExplorerUrl } from "../lib/stacksClient";
+import { useState } from 'react';
+import Navbar from '../components/Navbar';
+import WalletEmbed from '../components/WalletEmbed';
+import TxLog from '../components/TxLog';
+import { explorerForTx } from '../lib/stacksClient';
 
-export default function Home(){
-  const [account, setAccount] = useState(null);
-  const [to, setTo] = useState("");
-  const [amt, setAmt] = useState("0.001");
-  const [loading, setLoading] = useState(false);
-  const [txInfo, setTxInfo] = useState(null);
+export default function Home() {
+  const [acct, setAcct] = useState(null);
+  const [to, setTo] = useState('');
+  const [amt, setAmt] = useState('0.001');
+  const [logs, setLogs] = useState([]);
+  const [lastTx, setLastTx] = useState(null);
 
-  async function onConnected(addr){
-    setAccount(addr);
-    showToast("Connected " + addr, "success");
+  function pushLog(m){ setLogs(l => [...l, `${new Date().toLocaleTimeString()} • ${m}`]); }
+
+  async function onConnected(address, meta) {
+    setAcct(address);
+    pushLog(`Connected ${address} (${meta?.mock ? 'mock' : 'turnkey'})`);
   }
 
-  async function handleSend(){
-    if (!account) return showToast("Connect wallet first", "error");
-    if(!to) return showToast("Add recipient", "error");
-    setLoading(true);
+  // Client prepares a simple payload object — later replace with
+  // `@stacks/transactions` makeUnsignedTransaction -> serialize for sign.
+  function buildPayload() {
+    return { from: acct, to, amount: amt, ts: Date.now() };
+  }
+
+  // Client signs payload (mock) OR calls Turnkey signer (TODO).
+  async function signPayload(payload) {
+    // If Turnkey available, call Turnkey sign here and return signedHex.
+    // TODO: implement Turnkey client signing per docs:
+    // e.g. const signed = await turnkey.signStacksTransaction(payloadToSign)
+    // return signed.signedTxHex
+    // For demo return fake signed hex:
+    return '0x' + Math.random().toString(16).slice(2,40);
+  }
+
+  async function submit() {
+    if (!acct) return pushLog('Connect wallet first');
+    if (!to) return pushLog('Add recipient');
+    const payload = buildPayload();
+    pushLog('Building payload...');
+    const signed = await signPayload(payload);
+    pushLog('Signed payload (mock or turnkey) — sending to server to broadcast');
+    // POST to serverless broadcast route
     try {
-      // 1) create unsigned payload on server
-      const createRes = await fetch('/api/create-sbtc-tx', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ from: account, to, amount: amt })
+      const res = await fetch('/api/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ signedTxHex: signed })
       });
-      const createJson = await createRes.json();
-      if (createJson.error) throw new Error(createJson.error);
-
-      // 2) Mock signing step (replace with Turnkey client sign)
-      const signedPayload = { mockSigned: true, signedBlob: 'SIGNED_PLACEHOLDER' };
-
-      // 3) submit signed payload back to server to broadcast
-      const submitRes = await fetch('/api/submit-signed-tx', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ signedPayload, original: createJson })
-      });
-      const submitJson = await submitRes.json();
-      if (submitJson.error) throw new Error(submitJson.error);
-
-      setTxInfo(submitJson);
-      showToast('Tx submitted: ' + (submitJson.txId || 'ok'), 'success');
-
-      // Save to local history for dashboard
-      const h = JSON.parse(localStorage.getItem('sbtc_history') || '[]');
-      h.push({ to, amount: amt, tx: submitJson.txId || 'MOCK_TX' });
-      localStorage.setItem('sbtc_history', JSON.stringify(h));
+      const j = await res.json();
+      if (j?.txid) {
+        setLastTx(j.txid);
+        pushLog('Broadcasted txid: ' + j.txid);
+      } else {
+        pushLog('Broadcast returned: ' + JSON.stringify(j));
+      }
     } catch (err) {
-      console.error(err);
-      showToast('Error: ' + err.message, 'error');
-    } finally {
-      setLoading(false);
+      pushLog('Broadcast error: ' + err.message);
     }
   }
 
   return (
     <>
-      <Navbar onConnect={() => {}} connected={account} />
-      <div className="container">
+      <Navbar onConnect={()=>{}} connected={acct} />
+      <main className="container">
         <div className="card">
-          <h2>Embedded sBTC Payments (MVP)</h2>
-          <p className="muted">Mock Turnkey wallet — real UX for your demo.</p>
+          <h2>sBTC Payment (Stacks Testnet)</h2>
+          <p className="muted">Connect an embedded wallet (Turnkey) or use the mock for demo.</p>
 
           <div style={{marginTop:12}}>
             <WalletEmbed onConnected={onConnected} />
           </div>
 
-          <div style={{marginTop:16}}>
-            <label>Recipient</label>
-            <input className="input" value={to} onChange={e=>setTo(e.target.value)} placeholder="Recipient STX address" />
+          <div style={{marginTop:14}}>
+            <label>Recipient STX address</label>
+            <input className="input" value={to} onChange={e=>setTo(e.target.value)} placeholder="ST..." />
             <label style={{marginTop:8}}>Amount (sBTC)</label>
             <input className="small-input" value={amt} onChange={e=>setAmt(e.target.value)} />
             <div style={{marginTop:12}}>
-              <button className="btn" onClick={handleSend} disabled={loading}>{loading ? 'Sending…' : 'Send sBTC'}</button>
+              <button className="btn" onClick={submit}>Send sBTC (demo)</button>
             </div>
           </div>
         </div>
 
-        {txInfo && (
-          <div style={{marginTop:16}}>
-            <div className="card">
-              <h4>Last Tx</h4>
-              <pre style={{whiteSpace:'pre-wrap'}}>{JSON.stringify(txInfo, null, 2)}</pre>
-              {txInfo.txId && <a href={txExplorerUrl(txInfo.txId)} target="_blank" rel="noreferrer">View on Explorer</a>}
-            </div>
+        {lastTx && (
+          <div style={{marginTop:12}} className="card">
+            <div>Last tx: <a target="_blank" rel="noreferrer" href={explorerForTx(lastTx)}>{lastTx}</a></div>
           </div>
         )}
-      </div>
+
+        <TxLog entries={logs} />
+      </main>
     </>
   );
-                      }
+  }
