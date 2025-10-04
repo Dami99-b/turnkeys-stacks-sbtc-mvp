@@ -2,37 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
-/* small design tokens */
-:root{
-  --bg: #071021;
-  --card: rgba(255,255,255,0.03);
-  --muted: #9aa4b2;
-  --accent: #6C5CE7;
+body {
+  @apply bg-gradient-to-br from-gray-950 via-gray-900 to-black text-white min-h-screen flex flex-col items-center justify-start p-4;
+  font-family: 'Inter', sans-serif;
+  overflow-x: hidden;
 }
 
-html,body,#__next{height:100%}
-body{
-  @apply bg-gradient-to-br from-[#05060a] via-[#071021] to-[#07112a] text-white antialiased;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto;
+.card {
+  @apply bg-white/10 backdrop-blur-2xl rounded-2xl p-6 shadow-lg border border-white/10 w-full max-w-md mx-auto;
 }
 
-/* common */
-.container{max-width:1100px;margin:0 auto;padding:28px}
-.card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.03);padding:18px;border-radius:12px}
-.btn{background:var(--accent);padding:10px 14px;border-radius:10px;font-weight:700;color:white}
-.small{padding:8px 10px;font-size:13px;border-radius:8px}
+button {
+  @apply bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-xl transition-all w-full;
+}
 
-/* layout */
-.nav{display:flex;justify-content:space-between;align-items:center;padding:14px 24px}
-.logo{font-weight:800;color:var(--accent);font-size:18px}
-.muted{color:var(--muted)}
-.input{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent}
+h1, h2, h3 {
+  @apply text-white font-bold text-center;
+}
 
-/* hero */
-.hero-wrap{display:flex;gap:24px;align-items:center;padding:28px;border-radius:16px;background:linear-gradient(135deg, rgba(108,92,231,0.12), rgba(0,186,255,0.04));box-shadow:0 12px 40px rgba(2,6,23,0.6)}
-h1{font-size:30px}
-
-/* small screens */
-@media (max-width:768px){
-  .hero-wrap{flex-direction:column;align-items:flex-start}
+footer {
+  @apply text-gray-400 text-sm text-center mt-10;
 }
