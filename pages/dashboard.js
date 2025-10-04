@@ -4,9 +4,8 @@ import { useEffect, useState } from "react";
 export default function Dashboard(){
   const [history, setHistory] = useState([]);
   useEffect(()=> {
-    // load mem or call server endpoint for tx history
     const h = JSON.parse(localStorage.getItem('sbtc_history') || '[]');
-    setHistory(h);
+    setHistory(h.reverse());
   },[]);
   return (
     <>
