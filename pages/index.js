@@ -1,83 +1,101 @@
 import Head from "next/head";
 import { useState } from "react";
+import Navbar from "../components/Navbar";
 import WalletEmbed from "../components/WalletEmbed";
-import SendCard from "../components/SendCard";
-import TxLog from "../components/TxLog";
+import DashboardCard from "../components/DashboardCard";
+import Footer from "../components/Footer";
+import ToastRoot, { showToast } from "../components/ToastRoot";
+import { makeFakeTxId } from "../lib/stacksClient";
 
 export default function Home() {
+  const owner = process.env.NEXT_PUBLIC_OWNER || 'Dami';
   const [account, setAccount] = useState(null);
-  const [logs, setLogs] = useState([]);
+  const [txs, setTxs] = useState([]);
+  const [balance, setBalance] = useState('0.247 sBTC');
 
-  function pushLog(m) {
-    setLogs(l => [...l, `${new Date().toLocaleTimeString()} • ${m}`]);
-  }
-
-  function handleConnected(addr, meta) {
+  function handleConnected(addr, meta){
     setAccount({ address: addr, meta });
-    pushLog(`Connected ${addr} (${meta?.mock ? "mock" : "turnkey"})`);
+    showToast('Wallet connected: ' + addr);
   }
-  function handleBroadcasted(txid) {
-    pushLog(`Broadcasted ${txid}`);
+
+  async function quickSwapDemo(){
+    if(!account) return showToast('Connect wallet first','error');
+    showToast('Simulating swap: sBTC ↔ STX');
+    const txid = makeFakeTxId();
+    setTxs(t=> [{txid, type:'swap', amount:'0.002 sBTC', when: Date.now(), status:'CONFIRMED'}, ...t]);
   }
 
   return (
     <>
-      <Head>
-        <title>sBTC Pay — Dami 🫰🏾</title>
-      </Head>
-
-      <div className="min-h-screen bg-gradient-to-br from-[#05060a] via-[#071021] to-[#07112a] text-white py-8 px-4 flex flex-col items-center">
-        <div className="w-full max-w-5xl">
-          <header className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold">sBTC • Pay</h1>
-              <p className="text-sm text-gray-400">Embedded wallet demo — mock & turnkey fallback</p>
-            </div>
-            <div className="hidden sm:flex items-center gap-3">
-              <div className="text-sm text-gray-300">Preview</div>
-              <div className="text-xs text-gray-400">Dami 🫰🏾</div>
-            </div>
-          </header>
-
-          {/* MAIN GRID: stacks on mobile, two-cols on md+ */}
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_380px] gap-6">
-            {/* Left: main flow (stacked on mobile) */}
-            <main>
-              <div className="card mb-4">
-                <h2 className="text-lg font-semibold">Wallet</h2>
-                <div className="mt-4">
-                  <WalletEmbed onConnected={handleConnected} />
+      <Head><title>sBTC • Pay — Dami</title></Head>
+      <Navbar onConnect={()=>{}} connected={account?.address} owner={owner} />
+      <main className="container mt-6">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_400px] gap-6">
+          <section>
+            <DashboardCard title="Wallet">
+              <WalletEmbed onConnected={handleConnected} />
+              <div className="mt-4 flex gap-3">
+                <div className="card">
+                  <div className="muted">Balance</div>
+                  <div className="text-xl font-semibold">{balance}</div>
+                </div>
+                <div className="card">
+                  <div className="muted">Address</div>
+                  <div className="font-mono text-xs break-all">{account?.address || 'Not connected'}</div>
                 </div>
               </div>
+            </DashboardCard>
 
-              <div className="card">
-                <SendCard wallet={account} onBroadcasted={handleBroadcasted} />
-              </div>
+            <div className="mt-6">
+              <DashboardCard title="DEX-ish — Quick Actions">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button onClick={quickSwapDemo} className="btn w-full sm:w-auto">Quick Swap (demo)</button>
+                  <button onClick={()=> showToast('Open orderbook (demo)')} className="btn w-full sm:w-auto">Orderbook</button>
+                </div>
+              </DashboardCard>
+            </div>
 
-              <div className="mt-4">
-                <TxLog />
-              </div>
-            </main>
+            <div className="mt-6">
+              <DashboardCard title="Recent Activity">
+                {txs.length === 0 ? <div className="muted">No transactions yet</div> :
+                  txs.map((t,i)=>(
+                    <div key={i} className="p-3 border-b border-white/6">
+                      <div className="font-mono text-xs">{t.txid}</div>
+                      <div className="muted text-sm">{t.type} • {t.amount} • {t.status}</div>
+                    </div>
+                  ))
+                }
+              </DashboardCard>
+            </div>
+          </section>
 
-            {/* Right: sidebar (becomes full width under main on mobile) */}
-            <aside className="space-y-4">
-              <div className="card">
-                <h3 className="font-semibold">Quick Info</h3>
-                <p className="text-sm text-gray-300 mt-2">Use mock mode for mobile demos. For real Turnkey signing, use desktop or a security key.</p>
-              </div>
+          <aside>
+            <DashboardCard title="Quick Send">
+              <form onSubmit={e=>e.preventDefault()}>
+                <input placeholder="Recipient (ST...)" className="input mb-2"/>
+                <input placeholder="Amount (sBTC)" className="small-input mb-2"/>
+                <button className="btn w-full">Send (demo)</button>
+              </form>
+            </DashboardCard>
 
-              <div className="card">
-                <h3 className="font-semibold">Last Action</h3>
-                <p className="text-sm text-gray-300 mt-2">{logs.length ? logs[logs.length - 1] : "No actions yet"}</p>
-              </div>
-            </aside>
-          </div>
-
-          <footer className="mt-8 text-center text-sm text-gray-400">
-            Crafted with ♥ by <span className="text-indigo-400 font-semibold">Dami 🫰🏾</span>
-          </footer>
+            <div className="mt-4">
+              <DashboardCard title="About">
+                <p className="muted">This build simulates embedded wallet flows and live-like sBTC transactions. Replace mock signer with Turnkey SDK when ready.</p>
+              </DashboardCard>
+            </div>
+          </aside>
         </div>
-      </div>
+
+        <Footer
+          twitter={process.env.NEXT_PUBLIC_TWITTER}
+          linkedin={process.env.NEXT_PUBLIC_LINKEDIN}
+          github={process.env.NEXT_PUBLIC_GITHUB}
+          eth={process.env.NEXT_PUBLIC_ETH}
+        />
+      </main>
+
+      <ToastRoot />
+      <div className="footer-tag">Dami 🫰🏾</div>
     </>
-  );
-              }
+  )
+                    }
