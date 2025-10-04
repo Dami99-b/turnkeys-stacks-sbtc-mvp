@@ -3,11 +3,16 @@ import { useState, useEffect } from "react";
 export default function Dashboard() {
   const [address, setAddress] = useState(
     "SP2E49D363B670P1RTGZRP8F4TJAS7JSME9GM8PCY"
-  ); // mock connected
+  );
   const [balance, setBalance] = useState(0);
   const [txs, setTxs] = useState([]);
   const [sending, setSending] = useState(false);
   const [toast, setToast] = useState("");
+
+  // DEX states
+  const [fromAmount, setFromAmount] = useState("");
+  const [toAmount, setToAmount] = useState("");
+  const [swapToken, setSwapToken] = useState("STX");
 
   const showToast = (msg) => {
     setToast(msg);
@@ -33,7 +38,7 @@ export default function Dashboard() {
         `https://api.testnet.hiro.so/extended/v1/address/${address}/transactions`
       );
       const data = await res.json();
-      setTxs(data.results.slice(0, 10)); // last 10 txs
+      setTxs(data.results.slice(0, 10));
     } catch (e) {
       console.error(e);
     }
@@ -45,7 +50,7 @@ export default function Dashboard() {
     const interval = setInterval(() => {
       fetchBalance();
       fetchTxs();
-    }, 10000); // refresh every 10s
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -80,19 +85,26 @@ export default function Dashboard() {
     }
   };
 
+  const handleSwap = () => {
+    if (!fromAmount) return showToast("Enter an amount to swap");
+    // Mock swap logic: 1:1 rate for demonstration
+    const received = parseFloat(fromAmount);
+    setToAmount(received);
+    showToast(`✅ Swapped ${fromAmount} sBTC → ${received} ${swapToken}`);
+    setFromAmount("");
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black text-white flex flex-col items-center p-6 font-sans">
       <header className="text-center mb-10">
         <h1 className="text-4xl font-extrabold mb-2 text-purple-400">
           Dami Stacks Dashboard
         </h1>
-        <p className="text-gray-400">
-          sBTC • Stacks • Turnkey (Server-Side Signing)
-        </p>
+        <p className="text-gray-400">sBTC • Stacks • Turnkey (Server-Side Signing)</p>
       </header>
 
-      <div className="w-full max-w-3xl flex flex-col md:flex-row gap-6">
-        {/* LEFT PANEL */}
+      <div className="w-full max-w-5xl flex flex-col md:flex-row gap-6">
+        {/* LEFT PANEL: Wallet Info */}
         <div className="flex-1 bg-gray-900/70 backdrop-blur-md p-6 rounded-2xl shadow-lg border border-gray-800">
           <h2 className="text-purple-300 font-semibold mb-4">Wallet Info</h2>
           <p className="text-gray-400 text-sm">Connected Address:</p>
@@ -125,9 +137,31 @@ export default function Dashboard() {
               {sending ? "Sending..." : "Send STX"}
             </button>
           </form>
+
+          {/* DEX Mock Panel */}
+          <div className="mt-8 p-4 bg-gray-800/60 rounded-xl">
+            <h2 className="text-purple-300 font-semibold mb-3">Swap sBTC → {swapToken}</h2>
+            <input
+              type="number"
+              value={fromAmount}
+              onChange={(e) => setFromAmount(e.target.value)}
+              placeholder="Amount sBTC"
+              className="w-full p-2 rounded bg-gray-900 text-white border border-gray-700 focus:border-purple-400 mb-2"
+            />
+            <div className="flex justify-between mb-2 text-gray-400 text-sm">
+              <span>To: {swapToken}</span>
+              <span>Estimated: {toAmount}</span>
+            </div>
+            <button
+              onClick={handleSwap}
+              className="w-full bg-purple-600 hover:bg-purple-700 transition p-2 rounded-lg font-semibold"
+            >
+              Swap
+            </button>
+          </div>
         </div>
 
-        {/* RIGHT PANEL */}
+        {/* RIGHT PANEL: Recent Transactions */}
         <div className="flex-1 bg-gray-900/70 backdrop-blur-md p-6 rounded-2xl shadow-lg border border-gray-800">
           <h2 className="text-purple-300 font-semibold mb-4">Recent Transactions</h2>
           {txs.length === 0 ? (
@@ -139,11 +173,11 @@ export default function Dashboard() {
                   <p>
                     <span className="text-gray-400">TXID:</span>{" "}
                     <a
-                      href={`https://explorer.testnet.stacks.co/txid/${t.tx_id || t.tx_id}`}
+                      href={`https://explorer.testnet.stacks.co/txid/${t.tx_id}`}
                       className="text-blue-400 hover:underline break-all"
                       target="_blank"
                     >
-                      {t.tx_id || t.tx_id}
+                      {t.tx_id}
                     </a>
                   </p>
                   <p className="text-gray-400">
@@ -182,4 +216,4 @@ export default function Dashboard() {
       )}
     </div>
   );
-        }
+}
