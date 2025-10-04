@@ -1,0 +1,14 @@
+// POST { signedPayload, original } -> returns fake txId
+export default async function handler(req,res){
+  if (req.method !== 'POST') return res.status(405).json({error:'Method not allowed'});
+  try {
+    const { signedPayload, original } = req.body || {};
+    if (!signedPayload) return res.status(400).json({error:'missing signedPayload'});
+    // mock broadcast: produce a fake tx id
+    const fakeTxId = '0x' + (Math.random().toString(16).slice(2,12));
+    return res.status(200).json({ txId: fakeTxId, note: 'MOCK broadcasted. Replace with real broadcast.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+}
