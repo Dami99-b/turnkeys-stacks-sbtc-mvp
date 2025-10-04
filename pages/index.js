@@ -1,101 +1,181 @@
-import Head from "next/head";
-import { useState } from "react";
-import Navbar from "../components/Navbar";
-import WalletEmbed from "../components/WalletEmbed";
-import DashboardCard from "../components/DashboardCard";
-import Footer from "../components/Footer";
-import ToastRoot, { showToast } from "../components/ToastRoot";
-import { makeFakeTxId } from "../lib/stacksClient";
+import { useState, useEffect } from "react";
 
 export default function Home() {
-  const owner = process.env.NEXT_PUBLIC_OWNER || 'Dami';
-  const [account, setAccount] = useState(null);
+  const [connected, setConnected] = useState(false);
+  const [address, setAddress] = useState("");
+  const [balance, setBalance] = useState(0);
   const [txs, setTxs] = useState([]);
-  const [balance, setBalance] = useState('0.247 sBTC');
+  const [toast, setToast] = useState("");
 
-  function handleConnected(addr, meta){
-    setAccount({ address: addr, meta });
-    showToast('Wallet connected: ' + addr);
-  }
+  // simple toast system
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(""), 3000);
+  };
 
-  async function quickSwapDemo(){
-    if(!account) return showToast('Connect wallet first','error');
-    showToast('Simulating swap: sBTC ↔ STX');
-    const txid = makeFakeTxId();
-    setTxs(t=> [{txid, type:'swap', amount:'0.002 sBTC', when: Date.now(), status:'CONFIRMED'}, ...t]);
+  // mock connect (for now)
+  const connectMock = async () => {
+    setAddress("SP2E49D363B670P1RTGZRP8F4TJAS7JSME9GM8PCY");
+    setConnected(true);
+    showToast("Wallet connected");
+  };
+
+  // fetch balance (Stacks testnet)
+  const fetchBalance = async (addr) => {
+    try {
+      const res = await fetch(`https://api.testnet.hiro.so/extended/v1/address/${addr}/balances`);
+      const data = await res.json();
+      const stx = data?.stx?.balance / 1_000_000 || 0;
+      setBalance(stx);
+    } catch (e) {
+      console.error(e);
+      setBalance(0);
+    }
+  };
+
+  useEffect(() => {
+    if (connected && address) fetchBalance(address);
+  }, [connected, address]);
+
+  async function handleSend(e) {
+    e.preventDefault();
+    const to = e.target.recipient.value.trim();
+    const amount = e.target.amount.value.trim();
+    if (!to || !amount) return showToast("Fill all fields");
+    showToast("⏳ Sending...");
+
+    try {
+      const r = await fetch("/api/sendTx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to, amount }),
+      });
+      const data = await r.json();
+
+      if (data.txid) {
+        showToast("✅ Sent! TX: " + data.txid);
+        setTxs((t) => [
+          { txid: data.txid, type: "send", amount, status: data.status },
+          ...t,
+        ]);
+      } else {
+        showToast("❌ " + (data.error || "Error sending"));
+      }
+    } catch (err) {
+      showToast("❌ Error sending tx");
+      console.error(err);
+    }
   }
 
   return (
-    <>
-      <Head><title>sBTC • Pay — Dami</title></Head>
-      <Navbar onConnect={()=>{}} connected={account?.address} owner={owner} />
-      <main className="container mt-6">
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_400px] gap-6">
-          <section>
-            <DashboardCard title="Wallet">
-              <WalletEmbed onConnected={handleConnected} />
-              <div className="mt-4 flex gap-3">
-                <div className="card">
-                  <div className="muted">Balance</div>
-                  <div className="text-xl font-semibold">{balance}</div>
-                </div>
-                <div className="card">
-                  <div className="muted">Address</div>
-                  <div className="font-mono text-xs break-all">{account?.address || 'Not connected'}</div>
-                </div>
-              </div>
-            </DashboardCard>
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black text-white flex flex-col items-center p-6 font-sans">
+      <header className="text-center mb-10">
+        <h1 className="text-4xl font-extrabold mb-2 text-purple-400">
+          Dami Embedded Wallet
+        </h1>
+        <p className="text-gray-400">
+          sBTC • Stacks • Turnkey Integration (Server-side signing)
+        </p>
+      </header>
 
-            <div className="mt-6">
-              <DashboardCard title="DEX-ish — Quick Actions">
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button onClick={quickSwapDemo} className="btn w-full sm:w-auto">Quick Swap (demo)</button>
-                  <button onClick={()=> showToast('Open orderbook (demo)')} className="btn w-full sm:w-auto">Orderbook</button>
-                </div>
-              </DashboardCard>
-            </div>
+      {!connected ? (
+        <button
+          onClick={connectMock}
+          className="bg-purple-500 hover:bg-purple-600 transition px-8 py-3 rounded-lg text-lg font-medium"
+        >
+          Connect Mock Wallet
+        </button>
+      ) : (
+        <div className="w-full max-w-md bg-gray-900/70 backdrop-blur-md p-6 rounded-2xl shadow-lg border border-gray-800">
+          <div className="mb-4">
+            <p className="text-sm text-gray-400">Connected as:</p>
+            <p className="font-mono break-all text-sm text-purple-300">{address}</p>
+          </div>
 
-            <div className="mt-6">
-              <DashboardCard title="Recent Activity">
-                {txs.length === 0 ? <div className="muted">No transactions yet</div> :
-                  txs.map((t,i)=>(
-                    <div key={i} className="p-3 border-b border-white/6">
-                      <div className="font-mono text-xs">{t.txid}</div>
-                      <div className="muted text-sm">{t.type} • {t.amount} • {t.status}</div>
-                    </div>
-                  ))
-                }
-              </DashboardCard>
-            </div>
-          </section>
+          <div className="mb-6">
+            <p className="text-lg">
+              Balance:{" "}
+              <span className="text-2xl font-bold text-green-400">
+                {balance.toFixed(3)} STX
+              </span>
+            </p>
+          </div>
 
-          <aside>
-            <DashboardCard title="Quick Send">
-              <form onSubmit={e=>e.preventDefault()}>
-                <input placeholder="Recipient (ST...)" className="input mb-2"/>
-                <input placeholder="Amount (sBTC)" className="small-input mb-2"/>
-                <button className="btn w-full">Send (demo)</button>
-              </form>
-            </DashboardCard>
+          <form onSubmit={handleSend} className="mb-6">
+            <input
+              name="recipient"
+              placeholder="Recipient (ST...)"
+              className="w-full p-3 rounded bg-gray-800 text-sm mb-3 focus:outline-none border border-gray-700 focus:border-purple-400"
+            />
+            <input
+              name="amount"
+              placeholder="Amount (STX)"
+              type="number"
+              step="0.000001"
+              className="w-full p-3 rounded bg-gray-800 text-sm mb-3 focus:outline-none border border-gray-700 focus:border-purple-400"
+            />
+            <button
+              type="submit"
+              className="w-full bg-purple-600 hover:bg-purple-700 transition p-3 rounded-lg font-semibold"
+            >
+              Send Transaction
+            </button>
+          </form>
 
-            <div className="mt-4">
-              <DashboardCard title="About">
-                <p className="muted">This build simulates embedded wallet flows and live-like sBTC transactions. Replace mock signer with Turnkey SDK when ready.</p>
-              </DashboardCard>
-            </div>
-          </aside>
+          <div>
+            <h2 className="font-semibold mb-2 text-purple-300">Recent Transactions</h2>
+            {txs.length === 0 ? (
+              <p className="text-gray-500 text-sm">No transactions yet.</p>
+            ) : (
+              <ul className="text-sm space-y-2">
+                {txs.map((t, i) => (
+                  <li key={i} className="bg-gray-800/60 p-3 rounded-md">
+                    <p>
+                      <span className="text-gray-400">TXID:</span>{" "}
+                      <a
+                        href={`https://explorer.testnet.stacks.co/txid/${t.txid}`}
+                        className="text-blue-400 hover:underline break-all"
+                        target="_blank"
+                      >
+                        {t.txid}
+                      </a>
+                    </p>
+                    <p className="text-gray-400">
+                      Amount: <span className="text-white">{t.amount}</span> STX |{" "}
+                      <span className="text-green-400">{t.status}</span>
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
+      )}
 
-        <Footer
-          twitter={process.env.NEXT_PUBLIC_TWITTER}
-          linkedin={process.env.NEXT_PUBLIC_LINKEDIN}
-          github={process.env.NEXT_PUBLIC_GITHUB}
-          eth={process.env.NEXT_PUBLIC_ETH}
-        />
-      </main>
+      <footer className="mt-12 text-sm text-gray-500 text-center space-y-1">
+        <p>
+          Built with ❤️ by{" "}
+          <a
+            href="https://x.com/damillz?t=Lt1K1-KaX-iVLDmgqCCH2w&s=09"
+            target="_blank"
+            className="text-purple-400 hover:underline"
+          >
+            Dami
+          </a>
+        </p>
+        <div className="flex justify-center space-x-3 text-purple-400">
+          <a href="https://github.com/Dami99-b" target="_blank">GitHub</a>
+          <a href="https://www.linkedin.com/in/prosper-okah-150672372" target="_blank">LinkedIn</a>
+          <span>·</span>
+          <a href="#" className="text-gray-400 font-mono">0xadc1866530B221AD80D77ba97EFa6888C1277418</a>
+        </div>
+      </footer>
 
-      <ToastRoot />
-      <div className="footer-tag">Dami 🫰🏾</div>
-    </>
-  )
-                    }
+      {toast && (
+        <div className="fixed bottom-6 right-6 bg-purple-600 text-white px-4 py-2 rounded-lg shadow-lg animate-fadeIn">
+          {toast}
+        </div>
+      )}
+    </div>
+  );
+        }
