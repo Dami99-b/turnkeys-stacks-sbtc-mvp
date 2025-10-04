@@ -1,15 +1,28 @@
+import Head from "next/head";
 import Navbar from "../components/Navbar";
+import Footer from "../components/Footer";
+import DashboardCard from "../components/DashboardCard";
 
 export default function Dashboard(){
   return (
     <>
-      <Navbar onConnect={()=>{}} connected={null} />
-      <div className="container">
-        <div className="card">
-          <h2>Dashboard</h2>
-          <p className="muted">Transaction history is stored locally in demo mode. Replace with backend storage for production.</p>
+      <Head><title>Dashboard — Dami</title></Head>
+      <Navbar onConnect={()=>{}} owner={process.env.NEXT_PUBLIC_OWNER || 'Dami'} />
+      <main className="container mt-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <DashboardCard title="Portfolio">
+            <div className="muted">Mock balances & positions</div>
+            <div className="mt-3 text-xl font-semibold">0.247 sBTC</div>
+          </DashboardCard>
+
+          <DashboardCard title="Orders">
+            <div className="muted">Recent mock orders</div>
+            <div className="mt-2">No orders yet</div>
+          </DashboardCard>
         </div>
-      </div>
+      </main>
+
+      <Footer twitter={process.env.NEXT_PUBLIC_TWITTER} linkedin={process.env.NEXT_PUBLIC_LINKEDIN} github={process.env.NEXT_PUBLIC_GITHUB} eth={process.env.NEXT_PUBLIC_ETH} />
     </>
-  );
+  )
 }
