@@ -7,7 +7,6 @@ import { txExplorerUrl } from "../lib/stacksClient";
 
 export default function Home(){
   const [account, setAccount] = useState(null);
-  const [balance, setBalance] = useState(null);
   const [to, setTo] = useState("");
   const [amt, setAmt] = useState("0.001");
   const [loading, setLoading] = useState(false);
@@ -16,13 +15,6 @@ export default function Home(){
   async function onConnected(addr){
     setAccount(addr);
     showToast("Connected " + addr, "success");
-    // fetch balance via serverless endpoint
-    try {
-      const r = await fetch(`/api/health`);
-      if (r.ok) {
-        // optional: call a /api/balance?address=...
-      }
-    } catch(e){}
   }
 
   async function handleSend(){
@@ -36,9 +28,9 @@ export default function Home(){
         body: JSON.stringify({ from: account, to, amount: amt })
       });
       const createJson = await createRes.json();
-      // createJson should include payloadToSign { ... } or unsignedHex etc.
-      // 2) sign payload using Turnkey client SDK (replace this mock with actual client sign)
-      // TODO: TURNKEY client sign -> signedPayload
+      if (createJson.error) throw new Error(createJson.error);
+
+      // 2) Mock signing step (replace with Turnkey client sign)
       const signedPayload = { mockSigned: true, signedBlob: 'SIGNED_PLACEHOLDER' };
 
       // 3) submit signed payload back to server to broadcast
@@ -48,8 +40,15 @@ export default function Home(){
         body: JSON.stringify({ signedPayload, original: createJson })
       });
       const submitJson = await submitRes.json();
+      if (submitJson.error) throw new Error(submitJson.error);
+
       setTxInfo(submitJson);
-      showToast('Tx submitted: ' + (submitJson.txId || submitJson.tx_id || 'ok'), 'success');
+      showToast('Tx submitted: ' + (submitJson.txId || 'ok'), 'success');
+
+      // Save to local history for dashboard
+      const h = JSON.parse(localStorage.getItem('sbtc_history') || '[]');
+      h.push({ to, amount: amt, tx: submitJson.txId || 'MOCK_TX' });
+      localStorage.setItem('sbtc_history', JSON.stringify(h));
     } catch (err) {
       console.error(err);
       showToast('Error: ' + err.message, 'error');
@@ -60,11 +59,11 @@ export default function Home(){
 
   return (
     <>
-      <Navbar onConnect={() => {/* open modal? we use WalletEmbed instead */}} connected={account} />
+      <Navbar onConnect={() => {}} connected={account} />
       <div className="container">
         <div className="card">
           <h2>Embedded sBTC Payments (MVP)</h2>
-          <p className="muted">Connect your embedded Turnkey wallet and send sBTC on Stacks Testnet.</p>
+          <p className="muted">Mock Turnkey wallet — real UX for your demo.</p>
 
           <div style={{marginTop:12}}>
             <WalletEmbed onConnected={onConnected} />
@@ -72,9 +71,9 @@ export default function Home(){
 
           <div style={{marginTop:16}}>
             <label>Recipient</label>
-            <input value={to} onChange={e=>setTo(e.target.value)} style={{width:'100%',padding:8,borderRadius:8,marginTop:6}} placeholder="Recipient STX/sBTC address" />
+            <input className="input" value={to} onChange={e=>setTo(e.target.value)} placeholder="Recipient STX address" />
             <label style={{marginTop:8}}>Amount (sBTC)</label>
-            <input value={amt} onChange={e=>setAmt(e.target.value)} style={{width:200,padding:8,borderRadius:8,marginTop:6}} />
+            <input className="small-input" value={amt} onChange={e=>setAmt(e.target.value)} />
             <div style={{marginTop:12}}>
               <button className="btn" onClick={handleSend} disabled={loading}>{loading ? 'Sending…' : 'Send sBTC'}</button>
             </div>
@@ -93,4 +92,4 @@ export default function Home(){
       </div>
     </>
   );
-                }
+                      }
